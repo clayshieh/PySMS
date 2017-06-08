@@ -70,11 +70,16 @@ class PySMS():
 			except Exception as e:
 				print e
 				print "Failed. Number:{0} Msg:{1}".format(self.addresses[pointer], msg)
-				self.init_server()
+				try:
+					self.init_server()
+				except PySMSException:
+					print "Init failed."
+					pass
 				counter += 1
 				time.sleep(5)
 				pass
 		if counter >= max_tries:
+			print "Max tries for text reached."
 			return False
 		return True
 
