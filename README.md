@@ -15,7 +15,7 @@ Import PySMS into your Python file by including the following line
 ### Usage
 Initialize the client with your email, password, smtp_server, smtp_port and an optional ssl flag.
 
-`ps = PySMS(email="text@example.com", password="password", smtp_server="smtp.example.com", smtp_port="465", ssl=True)`
+`ps = PySMS.PySMS(email="text@example.com", password="password", smtp_server="smtp.example.com", smtp_port="465", ssl=True)`
 
 Add numbers with corresponding carriers that you want the client to text whenever you call the `.text()` method.
 
