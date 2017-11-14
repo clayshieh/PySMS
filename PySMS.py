@@ -32,6 +32,7 @@ class PySMS:
         }
 
         # smtp
+        self.smtp = None
         self.validate(address, password)
         self.address = address.encode("utf-8")
         self.password = password.encode("utf-8")
@@ -40,6 +41,7 @@ class PySMS:
         self.ssl = ssl
 
         # imap
+        self.imap = None
         self.imap_server = imap_server
         self.window = window
         self.delimiter = delimiter
@@ -47,12 +49,11 @@ class PySMS:
 
         # format: key => [time, lambda]
         self.hook_dict = {}
-        
-        self.smtp = None
-        self.imap = None
-        self.init_server()
-
+        # format: number => address
         self.addresses = {}
+        self.tracked = []
+
+        self.init_server()
 
     def validate(self, address, password):
         try:
