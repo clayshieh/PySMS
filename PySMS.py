@@ -184,7 +184,7 @@ class PySMS:
         print "Hook with key: {key} not executed".format(key=key)
         return False
 
-    def text(self, msg, with_identifier=False, callback=None, max_tries=5, wait_time=5):
+    def text(self, msg, callback=False, callback_function=None, max_tries=5, wait_time=5):
         # pointer iterate through numbers and counter to track attempts for each number
         pointer = 0
         counter = 0
@@ -194,12 +194,12 @@ class PySMS:
         while pointer < len(addresses) and not (counter >= max_tries):
             try:
                 # Add call back function if enabled
-                if with_identifier:
+                if callback:
                     identifier = self.generate_identifier()
                     msg += "\r Reply with identifier {identifier} followed by a \"{delimiter}\"".format(
                         identifier=identifier, delimiter=self.delimiter)
                     # add entry to track identifier to callback function
-                    self.hook_dict[identifier] = [self.get_current_time(), addresses[pointer], callback]
+                    self.hook_dict[identifier] = [self.get_current_time(), addresses[pointer], callback_function]
                     # add to list of tracked addresses
                     self.tracked.append(addresses[pointer])
 
