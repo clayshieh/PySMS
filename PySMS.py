@@ -97,8 +97,8 @@ class PySMS:
     def get_imap_server(self):
         return self.imap
 
-    def check_callback_requirements(self):
-        if self.imap:
+    def check_callback_requirements(self, callback_function):
+        if self.imap and callable(callback_function):
             return True
         return False
 
@@ -200,7 +200,7 @@ class PySMS:
             try:
                 # Add call back function if enabled
                 if callback:
-                    if self.check_callback_requirements():
+                    if self.check_callback_requirements(callback_function):
                         identifier = self.generate_identifier()
                         msg += "\r Reply with identifier {identifier} followed by a \"{delimiter}\"".format(
                             identifier=identifier, delimiter=self.delimiter)
