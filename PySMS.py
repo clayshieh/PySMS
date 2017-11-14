@@ -71,7 +71,7 @@ class PySMS:
                 self.smtp = smtplib.SMTP(self.smtp_server, self.smtp_port)
                 self.smtp.starttls()
             self.smtp.login(self.address, self.password)
-        except Exception:
+        except smtplib.SMTPException:
             raise PySMSException("Unable to start smtp server, please check credentials.")
 
         # if responding functionality is enabled
@@ -88,7 +88,7 @@ class PySMS:
                         raise PySMSException("Unable to select mailbox: {0}".format(imap_mailbox))
                 else:
                     raise PySMSException("Unable to login to IMAP server with given credentials.")
-            except Exception:
+            except imaplib.IMAP4.error:
                 raise PySMSException("Unable to start IMAP server, please check address and SSL/TLS settings.")
 
     def get_smtp_server(self):
@@ -135,8 +135,6 @@ class PySMS:
 
     def generate_rfc_query(self):
         ret = ""
-        if len(self.tracked) == 1:
-            return "FROM {address}".format(address=self.tracked[0])
         for _ in range(len(self.tracked) - 1):
             ret += "OR "
         for track in self.tracked:
@@ -246,7 +244,7 @@ class PySMS:
                 counter = 0
                 # Reset msg back to original
                 tmp_msg = msg
-            except Exception:
+            except smtplib.SMTPException:
                 print "Failed. Address:{0} Msg:{1}".format(addresses[pointer], msg)
                 try:
                     self.init_server()
