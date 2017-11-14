@@ -149,7 +149,6 @@ class PySMS:
                 self.check_email(e_d, current_time)
         # clean at end to avoid race condition
         self.clean_hook_dict()
-        return None
 
     def get_email(self, uid):
         r, email_data = self.imap.uid('fetch', uid, '(RFC822)')
@@ -192,6 +191,7 @@ class PySMS:
                             key = response[0].strip()
                             value = response[1].strip()
                             return self.execute_hook(key, value)
+        # clean_hook_dict will take care of this later
         print "Email is expired"
         return False
 
@@ -201,11 +201,13 @@ class PySMS:
             try:
                 self.hook_dict[key][2](value)
             except Exception:
-                print "Call back function threw an exception"
                 success = False
-            print "Hook with key: {key} for {address} executed".format(key=key, address=self.hook_dict[key][1])
+            if success:
+                print "Hook with key: {key} for {address} executed".format(key=key, address=self.hook_dict[key][1])
+            else:
+                print "Hook with key: {key} for {address} was not executed or failed".format(
+                    key=key, address=self.hook_dict[key][1])
             self.remove_hook(key)
-            return success
         else:
             raise PySMSException("Hook with key: {key} not valid".format(key=key))
 
