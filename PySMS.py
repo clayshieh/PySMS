@@ -15,7 +15,7 @@ class PySMSException:
 
 
 class PySMS:
-    def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, window=None, delimiter=":",
+    def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, window=5, delimiter=":",
                  identifier_length=4, ssl=False):
         # referenced from https://www.digitaltrends.com/mobile/how-to-send-e-mail-to-sms-text/
         self.carriers = {
@@ -87,15 +87,20 @@ class PySMS:
                     if r != "OK":
                         raise PySMSException("Unable to select mailbox: {0}".format(imap_mailbox))
                 else:
-                    raise PySMSException("Unable to login to imap server with given credentials.")
+                    raise PySMSException("Unable to login to IMAP server with given credentials.")
             except Exception:
-                raise PySMSException("Unable to start imap server, please check address and SSL/TLS settings.")
+                raise PySMSException("Unable to start IMAP server, please check address and SSL/TLS settings.")
 
     def get_smtp_server(self):
         return self.smtp
 
     def get_imap_server(self):
         return self.imap
+
+    def check_callback_requirements(self):
+        if self.imap:
+            return True
+        return False
 
     def add_number(self, number, carrier):
         if carrier in self.carriers:
@@ -195,13 +200,16 @@ class PySMS:
             try:
                 # Add call back function if enabled
                 if callback:
-                    identifier = self.generate_identifier()
-                    msg += "\r Reply with identifier {identifier} followed by a \"{delimiter}\"".format(
-                        identifier=identifier, delimiter=self.delimiter)
-                    # add entry to track identifier to callback function
-                    self.hook_dict[identifier] = [self.get_current_time(), addresses[pointer], callback_function]
-                    # add to list of tracked addresses
-                    self.tracked.append(addresses[pointer])
+                    if self.check_callback_requirements():
+                        identifier = self.generate_identifier()
+                        msg += "\r Reply with identifier {identifier} followed by a \"{delimiter}\"".format(
+                            identifier=identifier, delimiter=self.delimiter)
+                        # add entry to track identifier to callback function
+                        self.hook_dict[identifier] = [self.get_current_time(), addresses[pointer], callback_function]
+                        # add to list of tracked addresses
+                        self.tracked.append(addresses[pointer])
+                    else:
+                        raise PySMSException("IMAP settings not configured or valid.")
 
                 # Send text message through SMS gateway of destination number
                 self.smtp.sendmail(self.address, addresses[pointer], msg)
