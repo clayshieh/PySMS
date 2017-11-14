@@ -141,15 +141,18 @@ class PySMS:
         return ret[:-1]
 
     def check_tracked(self):
-        date = (datetime.date.today() - datetime.timedelta(1)).strftime("%d-%b-%Y")
-        r, uids = self.imap.uid("search", None,
-                                "(SENTSINCE {date} HEADER {query})".format(date=date, query=self.generate_rfc_query()))
-        if r == "OK":
-            email_data = self.get_emails(uids)
-            # pass a static current time because emails might take time to execute
-            current_time = self.get_current_time()
-            for e_d in email_data:
-                self.check_email(e_d, current_time)
+        if self.tracked:
+            date = (datetime.date.today() - datetime.timedelta(1)).strftime("%d-%b-%Y")
+            r, uids = self.imap.uid("search", None,
+                                    "(SENTSINCE {date} HEADER {query})".format(date=date, query=self.generate_rfc_query()))
+            if r == "OK":
+                email_data = self.get_emails(uids)
+                # pass a static current time because emails might take time to execute
+                current_time = self.get_current_time()
+                for e_d in email_data:
+                    self.check_email(e_d, current_time)
+        else:
+            print "No addresses being tracked"
         # clean at end to avoid race condition
         self.clean_hook_dict()
 
@@ -215,7 +218,7 @@ class PySMS:
             print "Hook with key: {key} not valid".format(key=key)
 
     def text(self, msg, callback=False, callback_function=None, max_tries=5, wait_time=5):
-        # pointer iterate through numbers and counter to track attempts for each number
+        # pointer iterate through addresses and counter to track attempts for each address
         pointer = 0
         counter = 0
 
@@ -233,12 +236,12 @@ class PySMS:
                     else:
                         raise PySMSException("IMAP settings not configured or valid.")
 
-                # Send text message through SMS gateway of destination number
+                # Send text message through SMS gateway of destination address
                 self.smtp.sendmail(self.address, addresses[pointer], msg)
                 pointer += 1
                 counter = 0
             except Exception:
-                print "Failed. Number:{0} Msg:{1}".format(addresses[pointer], msg)
+                print "Failed. Address:{0} Msg:{1}".format(addresses[pointer], msg)
                 try:
                     self.init_server()
                 except PySMSException:
