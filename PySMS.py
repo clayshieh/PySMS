@@ -181,7 +181,7 @@ class PySMS:
     def check_email(self, email_data, current_time):
         mail = email.message_from_string(email_data[0][1])
         mail_time = email.utils.mktime_tz(email.utils.parsedate_tz(mail["Date"]))
-        if current_time() - mail_time < self.window * 60:
+        if current_time - mail_time < self.window * 60:
             if mail.get_content_maintype() == "multipart":
                 for part in mail.walk():
                     if part.get_content_maintype() != 'multipart' and part.get('Content-Disposition') is not None:
