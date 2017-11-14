@@ -209,7 +209,7 @@ class PySMS:
                     key=key, address=self.hook_dict[key][1])
             self.remove_hook(key)
         else:
-            raise PySMSException("Hook with key: {key} not valid".format(key=key))
+            print "Hook with key: {key} not valid".format(key=key)
 
     def text(self, msg, callback=False, callback_function=None, max_tries=5, wait_time=5):
         # pointer iterate through numbers and counter to track attempts for each number
