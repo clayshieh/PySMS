@@ -143,6 +143,12 @@ class PySMS:
             return email_data
         return None
 
+    def get_emails(self, uids):
+        ret = []
+        for uid in uids[0].split():
+            ret.append(self.get_email(uid))
+        return ret
+
     # TODO: use min heap to speed up runtime if a lot of keys
     def clean_hook_dict(self):
         for key in self.hook_dict:
