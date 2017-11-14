@@ -117,10 +117,15 @@ class PySMS:
         return time.time()
 
     def generate_identifier(self):
-        ret = ""
-        for num in random.sample(range(0, 10), self.identifier_length):
-            ret += str(num)
-        return ret
+        def generate():
+            ret = ""
+            for num in random.sample(range(0, 10), self.identifier_length):
+                ret += str(num)
+            return ret
+        identifier = generate()
+        while identifier in self.hook_dict:
+            identifier = generate()
+        return identifier
 
     def generate_rfc_query(self):
         ret = ""
@@ -137,7 +142,9 @@ class PySMS:
         r, uids = self.imap.uid("search", None,
                                 "(SENTSINCE {date} HEADER {query})".format(date=date, query=self.generate_rfc_query()))
         if r == "OK":
-            return uids
+            email_data = self.get_emails(uids)
+            for e_d in email_data:
+                self.check_email(e_d)
         return None
 
     def get_email(self, uid):
@@ -152,12 +159,21 @@ class PySMS:
             ret.append(self.get_email(uid))
         return ret
 
+    def add_hook(self, identifier, address, callback_function):
+        self.hook_dict[identifier] = [self.get_current_time(), address, callback_function]
+        if address not in self.tracked:
+            self.tracked.append(address)
+
+    def remove_hook(self, key):
+        if key in self.hook_dict:
+            self.tracked.remove(self.hook_dict[key][1])
+            del self.hook_dict[key]
+
     # TODO: use min heap to speed up runtime if a lot of keys
     def clean_hook_dict(self):
         for key in self.hook_dict:
             if self.get_current_time() - self.hook_dict[key][0] > self.window * 60:
-                self.tracked.remove(self.hook_dict[key][1])
-                del self.hook_dict[key]
+                self.remove_hook(key)
 
     def check_email(self, email_data):
         mail = email.message_from_string(email_data[0][1])
@@ -184,7 +200,8 @@ class PySMS:
             except Exception:
                 print "Call back function threw an exception"
                 pass
-            print "Hook with key: {key} executed".format(key=key)
+            print "Hook with key: {key} for {address} executed".format(key=key, address=self.hook_dict[key][1])
+            self.remove_hook(key)
             return True
         print "Hook with key: {key} not executed".format(key=key)
         return False
@@ -204,10 +221,7 @@ class PySMS:
                         identifier = self.generate_identifier()
                         msg += "\r Reply with identifier {identifier} followed by a \"{delimiter}\"".format(
                             identifier=identifier, delimiter=self.delimiter)
-                        # add entry to track identifier to callback function
-                        self.hook_dict[identifier] = [self.get_current_time(), addresses[pointer], callback_function]
-                        # add to list of tracked addresses
-                        self.tracked.append(addresses[pointer])
+                        self.add_hook(identifier, addresses[pointer], callback_function)
                     else:
                         raise PySMSException("IMAP settings not configured or valid.")
 
