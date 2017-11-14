@@ -119,11 +119,20 @@ class PySMS:
             ret += str(num)
         return ret
 
-    def check_mail(self, number):
+    def generate_rfc_query(self):
+        ret = ""
+        if len(self.tracked) == 1:
+            return "FROM {address}".format(address=self.tracked[0])
+        for _ in range(len(self.tracked) - 1):
+            ret += "OR "
+        for track in self.tracked:
+            ret += track + " "
+        return ret[:-1]
+
+    def check_tracked(self):
         date = (datetime.date.today() - datetime.timedelta(1)).strftime("%d-%b-%Y")
-        address = self.addresses[number]
-        r, uids = self.imap.uid("search", None, "(SENTSINCE {date} HEADER FROM {address})".format(date=date,
-                                                                                                  address=address))
+        r, uids = self.imap.uid("search", None,
+                                "(SENTSINCE {date} HEADER {query})".format(date=date, query=self.generate_rfc_query()))
         if r == "OK":
             return uids
         return None
@@ -159,7 +168,8 @@ class PySMS:
 
     def execute_hook(self, key, value):
         if key in self.hook_dict:
-            self.hook_dict[key][1](value)
+            self.hook_dict[key][2](value)
+            self.tracked.remove(self.hook_dict[key][1])
             print "Hook with key: {key} executed".format(key=key)
             return True
         print "Hook with key: {key} not executed".format(key=key)
@@ -179,14 +189,16 @@ class PySMS:
                     identifier = self.generate_identifier()
                     msg += "\r Reply with identifier {identifier} followed by a \"{delimiter}\"".format(
                         identifier=identifier, delimiter=self.delimiter)
-                    self.hook_dict[identifier] = [self.get_current_time(), callback]
+                    # add entry to track identifier to callback function
+                    self.hook_dict[identifier] = [self.get_current_time(), addresses[pointer], callback]
+                    # add to list of tracked addresses
+                    self.tracked.append(addresses[pointer])
 
                 # Send text message through SMS gateway of destination number
                 self.smtp.sendmail(self.address, addresses[pointer], msg)
                 pointer += 1
                 counter = 0
             except Exception as e:
-                print e
                 print "Failed. Number:{0} Msg:{1}".format(addresses[pointer], msg)
                 try:
                     self.init_server()
