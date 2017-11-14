@@ -223,6 +223,7 @@ class PySMS:
         counter = 0
 
         addresses = self.addresses.values()
+        tmp_msg = msg
 
         while pointer < len(addresses) and not (counter >= max_tries):
             try:
@@ -230,16 +231,18 @@ class PySMS:
                 if callback:
                     if self.check_callback_requirements(callback_function):
                         identifier = self.generate_identifier()
-                        msg += "\r Reply with identifier {identifier} followed by a \"{delimiter}\"".format(
+                        tmp_msg += "\r Reply with identifier {identifier} followed by a \"{delimiter}\"".format(
                             identifier=identifier, delimiter=self.delimiter)
                         self.add_hook(identifier, addresses[pointer], callback_function)
                     else:
                         raise PySMSException("IMAP settings not configured or valid.")
 
                 # Send text message through SMS gateway of destination address
-                self.smtp.sendmail(self.address, addresses[pointer], msg)
+                self.smtp.sendmail(self.address, addresses[pointer], tmp_msg)
                 pointer += 1
                 counter = 0
+                # Reset msg back to original
+                tmp_msg = msg
             except Exception:
                 print "Failed. Address:{0} Msg:{1}".format(addresses[pointer], msg)
                 try:
