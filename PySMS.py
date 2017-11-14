@@ -143,8 +143,12 @@ class PySMS:
                                 "(SENTSINCE {date} HEADER {query})".format(date=date, query=self.generate_rfc_query()))
         if r == "OK":
             email_data = self.get_emails(uids)
+            # pass a static current time because emails might take time to execute
+            current_time = self.get_current_time()
             for e_d in email_data:
-                self.check_email(e_d)
+                self.check_email(e_d, current_time)
+        # clean at end to avoid race condition
+        self.clean_hook_dict()
         return None
 
     def get_email(self, uid):
@@ -175,10 +179,10 @@ class PySMS:
             if self.get_current_time() - self.hook_dict[key][0] > self.window * 60:
                 self.remove_hook(key)
 
-    def check_email(self, email_data):
+    def check_email(self, email_data, current_time):
         mail = email.message_from_string(email_data[0][1])
         mail_time = email.utils.mktime_tz(email.utils.parsedate_tz(mail["Date"]))
-        if self.get_current_time() - mail_time < self.window * 60:
+        if current_time() - mail_time < self.window * 60:
             if mail.get_content_maintype() == "multipart":
                 for part in mail.walk():
                     if part.get_content_maintype() != 'multipart' and part.get('Content-Disposition') is not None:
@@ -187,23 +191,23 @@ class PySMS:
                         if len(response) == 2:
                             key = response[0].strip()
                             value = response[1].strip()
-                            self.clean_hook_dict()
                             return self.execute_hook(key, value)
         print "Email is expired"
         return False
 
     def execute_hook(self, key, value):
         if key in self.hook_dict:
+            success = True
             try:
                 self.hook_dict[key][2](value)
             except Exception:
                 print "Call back function threw an exception"
-                pass
+                success = False
             print "Hook with key: {key} for {address} executed".format(key=key, address=self.hook_dict[key][1])
             self.remove_hook(key)
-            return True
-        print "Hook with key: {key} not executed".format(key=key)
-        return False
+            return success
+        else:
+            raise PySMSException("Hook with key: {key} not valid".format(key=key))
 
     def text(self, msg, callback=False, callback_function=None, max_tries=5, wait_time=5):
         # pointer iterate through numbers and counter to track attempts for each number
