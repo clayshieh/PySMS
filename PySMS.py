@@ -185,6 +185,7 @@ class PySMS:
             if self.get_current_time() - self.hook_dict[key][0] > self.window * 60:
                 self.remove_hook(key)
 
+    # referenced from: https://yuji.wordpress.com/2011/06/22/python-imaplib-imap-example-with-gmail/
     def check_email(self, email_data, current_time):
         mail = email.message_from_string(email_data[0][1])
         mail_time = email.utils.mktime_tz(email.utils.parsedate_tz(mail["Date"]))
