@@ -137,7 +137,7 @@ class PySMS:
         for _ in range(len(self.tracked) - 1):
             ret += "OR "
         for track in self.tracked:
-            ret += track + " "
+            ret += "FROM " + track + " "
         return ret[:-1]
 
     def check_tracked(self):
