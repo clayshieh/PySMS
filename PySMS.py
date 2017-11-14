@@ -100,6 +100,9 @@ class PySMS:
     def get_hook_dict(self):
         return self.hook_dict
 
+    def get_hook_address(self, key):
+        return self.hook_dict[key][1]
+
     def check_callback_requirements(self, callback_function):
         if self.imap and callable(callback_function):
             return True
