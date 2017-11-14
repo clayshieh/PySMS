@@ -47,7 +47,7 @@ class PySMS:
         self.delimiter = delimiter
         self.identifier_length = identifier_length
 
-        # format: key => [time, lambda]
+        # format: key => [time, address, lambda]
         self.hook_dict = {}
         # format: number => address
         self.addresses = {}
@@ -105,10 +105,8 @@ class PySMS:
             raise PySMSException("Please enter a valid carrier.")
 
     def del_number(self, number):
-        try:
+        if number in self.addresses:
             del self.addresses[number]
-        except Exception:
-            pass
 
     def get_current_time(self):
         return time.time()
@@ -153,6 +151,7 @@ class PySMS:
     def clean_hook_dict(self):
         for key in self.hook_dict:
             if self.get_current_time() - self.hook_dict[key][0] > self.window * 60:
+                self.tracked.remove(self.hook_dict[key][1])
                 del self.hook_dict[key]
 
     def check_email(self, email_data):
@@ -175,7 +174,11 @@ class PySMS:
     def execute_hook(self, key, value):
         if key in self.hook_dict:
             self.hook_dict[key][2](value)
-            self.tracked.remove(self.hook_dict[key][1])
+            try:
+                self.tracked.remove(self.hook_dict[key][1])
+            except Exception:
+                print "Call back function threw an exception"
+                pass
             print "Hook with key: {key} executed".format(key=key)
             return True
         print "Hook with key: {key} not executed".format(key=key)
@@ -204,7 +207,7 @@ class PySMS:
                 self.smtp.sendmail(self.address, addresses[pointer], msg)
                 pointer += 1
                 counter = 0
-            except Exception as e:
+            except Exception:
                 print "Failed. Number:{0} Msg:{1}".format(addresses[pointer], msg)
                 try:
                     self.init_server()
