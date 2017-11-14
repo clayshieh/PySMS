@@ -144,7 +144,7 @@ class PySMS:
         if self.tracked:
             date = (datetime.date.today() - datetime.timedelta(1)).strftime("%d-%b-%Y")
             r, uids = self.imap.uid("search", None,
-                                    "(SENTSINCE {date} HEADER {query})".format(date=date, query=self.generate_rfc_query()))
+                                    "(SENTSINCE {date} {query})".format(date=date, query=self.generate_rfc_query()))
             if r == "OK":
                 email_data = self.get_emails(uids)
                 # pass a static current time because emails might take time to execute
