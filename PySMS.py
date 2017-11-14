@@ -17,11 +17,18 @@ class PySMSException:
 class PySMS:
     def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, window=None, delimiter=":",
                  identifier_length=4, ssl=False):
+        # referenced from https://www.digitaltrends.com/mobile/how-to-send-e-mail-to-sms-text/
         self.carriers = {
+            "alltel": "@mms.alltelwireless.com",
             "att": "@mms.att.net",
+            "boost": "@myboostmobile.com",
+            "cricket": "@mms.cricketwireless.net",
+            "p_fi": "msg.fi.google.com",
+            "sprint": "@pm.sprint.com",
             "tmobile": "@tmomail.net",
-            "verizon": "@vtext.com",
-            "sprint": "@page.nextel.com"
+            "us_cellular": "@mms.uscc.net",
+            "verizon": "@vzwpix.com",
+            "virgin": "@vmpix.com"
         }
 
         # smtp
@@ -37,6 +44,8 @@ class PySMS:
         self.window = window
         self.delimiter = delimiter
         self.identifier_length = identifier_length
+
+        # format: key => [time, lambda]
         self.hook_dict = {}
         
         self.smtp = None
@@ -124,12 +133,11 @@ class PySMS:
             return email_data
         return None
 
+    # TODO: use min heap to speed up runtime if a lot of keys
     def clean_hook_dict(self):
         for key in self.hook_dict:
             if self.get_current_time() - self.hook_dict[key][0] > self.window * 60:
                 del self.hook_dict[key]
-
-    # self.hook_dict is key => [time, lambda]
 
     def check_email(self, email_data):
         mail = email.message_from_string(email_data[0][1])
@@ -143,15 +151,21 @@ class PySMS:
                         if len(response) == 2:
                             key = response[0].strip()
                             value = response[1].strip()
-
-                            return key, value
+                            self.clean_hook_dict()
+                            return self.execute_hook(key, value)
         print "Email is expired"
+        return False
 
     def execute_hook(self, key, value):
         if key in self.hook_dict:
             self.hook_dict[key][1](value)
+            print "Hook with key: {key} executed".format(key=key)
+            return True
+        print "Hook with key: {key} not executed".format(key=key)
+        return False
 
-    def text(self, msg, with_identifier=False, callback=None, max_tries=5):
+    def text(self, msg, with_identifier=False, callback=None, max_tries=5, wait_time=5):
+        # pointer iterate through numbers and counter to track attempts for each number
         pointer = 0
         counter = 0
 
@@ -179,7 +193,7 @@ class PySMS:
                     print "Init failed."
                     pass
                 counter += 1
-                time.sleep(5)
+                time.sleep(wait_time)
                 pass
         if counter >= max_tries:
             print "Max tries for text reached."
