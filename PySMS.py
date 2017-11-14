@@ -97,6 +97,9 @@ class PySMS:
     def get_imap_server(self):
         return self.imap
 
+    def get_hook_dict(self):
+        return self.hook_dict
+
     def check_callback_requirements(self, callback_function):
         if self.imap and callable(callback_function):
             return True
