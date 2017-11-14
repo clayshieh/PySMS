@@ -194,9 +194,8 @@ class PySMS:
 
     def execute_hook(self, key, value):
         if key in self.hook_dict:
-            self.hook_dict[key][2](value)
             try:
-                self.tracked.remove(self.hook_dict[key][1])
+                self.hook_dict[key][2](value)
             except Exception:
                 print "Call back function threw an exception"
                 pass
