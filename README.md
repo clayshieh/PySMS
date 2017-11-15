@@ -27,18 +27,22 @@ Add numbers with corresponding carriers that you want the client to text wheneve
 
 `ps.add_number("5551231234", "att")`
 
-Whenever you want to send a text with no callback functionality to said numbers call the `text()` method
+Whenever you want to send a text with no callback functionality to all added numbers call the `text()` method
 
 `ps.text("This is a text!")`
 
-You can also add a callback to the text by setting the `callback_flag` to `True` and setting the `callback_function` argument to your function.
+If you want to text just one number, set the optional number argument in the `text()` method
+
+`ps.text("This is an individual text", number="5551231234")`
+
+You can also add a callback to the text by setting the `callback` to `True` and setting the `callback_function` argument to your function. **When the callback function is executed, the code expects and checks that the callback function  accepts two arguments the first being the address of the associated hook and the second being the value of the reply** See example below.
 
 ```
-def test_callback(value):
-	print "Callback function triggered!"
+def test_callback(address, value):
+	print "Callback function triggered by {address}!".format(address=address)
 	print "Value was: " + value
 
-ps.text("This is a text with a callback function!", callback_flag=True, callback_function=test_callback)
+ps.text("This is a text with a callback function!", callback=True, callback_function=test_callback)
 ```
 
 The receiver of the text will get the following message:
@@ -56,7 +60,7 @@ To which they can reply:
 The callback function once the `check_tracked()` function finds the correct email will then print:
 
 ```
-Callback function triggered!
+Callback function triggered by 5551231234@mms.att.net!
 Value was: Amazing
 ```
 

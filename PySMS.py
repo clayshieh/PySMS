@@ -4,6 +4,7 @@ import email
 import datetime
 import time
 import random
+import inspect
 
 
 class PySMSException:
@@ -104,9 +105,16 @@ class PySMS:
         return self.hook_dict[key][1]
 
     def check_callback_requirements(self, callback_function):
-        if self.imap and callable(callback_function):
-            return True
-        return False
+        if self.imap:
+            if callable(callback_function):
+                if len(inspect.getargspec(callback_function)) == 2:
+                    return
+                else:
+                    raise PySMSException("Callback function does not have the correct number of arguments.")
+            else:
+                raise PySMSException("Callback function is not callable.")
+        else:
+            raise PySMSException("IMAP settings not configured or valid.")
 
     def add_number(self, number, carrier):
         if carrier in self.carriers:
@@ -207,7 +215,7 @@ class PySMS:
         if key in self.hook_dict:
             success = True
             try:
-                self.hook_dict[key][2](value)
+                self.hook_dict[key][2](self.hook_dict[key][1], value)
             except Exception:
                 success = False
             if success:
@@ -219,25 +227,27 @@ class PySMS:
         else:
             print "Hook with key: {key} not valid".format(key=key)
 
-    def text(self, msg, callback=False, callback_function=None, max_tries=5, wait_time=5):
+    def text(self, msg, address=None, callback=False, callback_function=None, max_tries=5, wait_time=5):
         # pointer iterate through addresses and counter to track attempts for each address
         pointer = 0
         counter = 0
 
-        addresses = self.addresses.values()
+        if address:
+            addresses = [address]
+        else:
+            addresses = self.addresses.values()
         tmp_msg = msg
 
         while pointer < len(addresses) and not (counter >= max_tries):
             try:
                 # Add call back function if enabled
                 if callback:
-                    if self.check_callback_requirements(callback_function):
-                        identifier = self.generate_identifier()
-                        tmp_msg += "\r Reply with identifier {identifier} followed by a \"{delimiter}\"".format(
-                            identifier=identifier, delimiter=self.delimiter)
-                        self.add_hook(identifier, addresses[pointer], callback_function)
-                    else:
-                        raise PySMSException("IMAP settings not configured or valid.")
+                    # Validate callback function
+                    self.check_callback_requirements(callback_function)
+                    identifier = self.generate_identifier()
+                    tmp_msg += "\rReply with identifier {identifier} followed by a \"{delimiter}\"".format(
+                        identifier=identifier, delimiter=self.delimiter)
+                    self.add_hook(identifier, addresses[pointer], callback_function)
 
                 # Send text message through SMS gateway of destination address
                 self.smtp.sendmail(self.address, addresses[pointer], tmp_msg)
@@ -259,5 +269,4 @@ class PySMS:
             print "Max tries for text reached."
             return False
         return True
-
 
