@@ -1,10 +1,13 @@
 # PySMS
-Simple Python API that that allows you to send texts via SMTP servers with a best effort approach
+Simple Python API that that allows you to send texts via SMTP with a best effort approach and process replies via IMAP
+
+### Motivation
+I could afford shared hosting that gave me unlimited email accounts but I couldn't (didn't want to pay for) a SMS API such as Twilio so I decided to write my own given that this email to texting functionality exists already.
 
 ### Prerequisites
-The only non standard Python Library you need is smtplib which you can install by running
+The only Python Libraries needed are included in the standard Python libraries but incase you don't have them you can install them with the following command.
 
-`pip install smtplib`
+`pip install smtplib imaplib email datetime`
 
 
 ### Getting Started
@@ -13,17 +16,51 @@ Import PySMS into your Python file by including the following line
 `import PySMS`
 
 ### Usage
-Initialize the client with your email, password, smtp_server, smtp_port and an optional ssl flag.
+For only texting capability, initialize the client with your address, password, smtp_server, smtp_port and an optional ssl flag.
 
-`ps = PySMS.PySMS(email="text@example.com", password="password", smtp_server="smtp.example.com", smtp_port="465", ssl=True)`
+`ps = PySMS.PySMS(address="text@example.com", password="password", smtp_server="smtp.example.com", smtp_port="465", ssl=True)`
 
-Add numbers with corresponding carriers that you want the client to text whenever you call the `.text()` method.
+To enable the texting callback capability, you also have to initialize the client with your imap_server.
+`ps = PySMS.PySMS(address="text@example.com", password="password", smtp_server="smtp.example.com", smtp_port="465", imap_server="imap.example.com", ssl=True)`
+
+Add numbers with corresponding carriers that you want the client to text whenever you call the `text()` method using the `add_number()` method.
 
 `ps.add_number("5551231234", "att")`
 
-Whenever you want to send a message to said numbers call the `.text()` method
+Whenever you want to send a text with no callback functionality to said numbers call the `text()` method
 
 `ps.text("This is a text!")`
+
+You can also add a callback to the text by setting the `callback_flag` to `True` and setting the `callback_function` argument to your function.
+
+```
+def test_callback(value):
+	print "Callback function triggered!"
+	print "Value was: " + value
+
+ps.text("This is a text with a callback function!", callback_flag=True, callback_function=test_callback)
+```
+
+The receiver of the text will get the following message:
+
+```
+This is a text with a callback function!Reply with identifier 1234 followed by a ":"
+```
+
+To which they can reply:
+
+```
+1234: Amazing
+```
+
+The callback function once the `check_tracked()` function finds the correct email will then print:
+
+```
+Callback function triggered!
+Value was: Amazing
+```
+
+Additional settings such as the window time, delimiter and identifier length can be configured when you initialize the server object by setting the optional arguments `window`, `delimiter` and `identifier_length` repsectively.
 
 ### Contributing
 Pull requests and contributions are welcomed!
