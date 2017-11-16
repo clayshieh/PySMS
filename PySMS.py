@@ -250,45 +250,45 @@ class PySMS:
             print "Hook with key: {key} not valid".format(key=key)
 
     def text(self, msg, address=None, callback=False, callback_function=None, max_tries=5, wait_time=5):
-        # Pointer iterate through addresses and counter to track attempts for each address
-        pointer = 0
-        counter = 0
-
         if address:
             addresses = [address]
         else:
             addresses = self.addresses.values()
         tmp_msg = msg
 
-        while pointer < len(addresses) and not (counter >= max_tries):
-            try:
-                # Add call back function if enabled
-                if callback:
-                    # Validate callback function
-                    self.check_callback_requirements(callback_function)
-                    identifier = self.generate_identifier()
-                    tmp_msg += "\rReply with identifier {identifier} followed by a \"{delimiter}\"".format(
-                        identifier=identifier, delimiter=self.delimiter)
-                    self.add_hook(identifier, addresses[pointer], callback_function)
-
-                # Send text message through SMS gateway of destination address
-                self.smtp.sendmail(self.address, addresses[pointer], tmp_msg)
-                pointer += 1
-                counter = 0
-                # Reset msg back to original
-                tmp_msg = msg
-            except smtplib.SMTPException:
-                print "Failed. Address:{0} Msg:{1}".format(addresses[pointer], msg)
+        for address in addresses:
+            success = False
+            for _ in range(max_tries):
                 try:
-                    self.init_server()
-                except PySMSException:
-                    print "Init failed."
+                    # Add call back function if enabled
+                    identifier = None
+                    if callback:
+                        # Validate callback function
+                        self.check_callback_requirements(callback_function)
+                        identifier = self.generate_identifier()
+                        tmp_msg += "\rReply with identifier {identifier} followed by a \"{delimiter}\"".format(
+                            identifier=identifier, delimiter=self.delimiter)
+
+                    # Send text message through SMS gateway of destination address
+                    self.smtp.sendmail(self.address, address, tmp_msg)
+                    print "Message: {message} sent to: {address} successfully.".format(message=tmp_msg, address=address)
+                    # Only add hook if message was sent successfully
+                    if callback:
+                        self.add_hook(identifier, address, callback_function)
+                    # Reset msg back to original
+                    tmp_msg = msg
+                    success = True
+                    break
+                except smtplib.SMTPException:
+                    print "Failed to send message, reinitializing server."
+                    try:
+                        self.init_server()
+                    except PySMSException:
+                        print "Server reinitialization failed."
+                        pass
+                    time.sleep(wait_time)
                     pass
-                counter += 1
-                time.sleep(wait_time)
-                pass
-        if counter >= max_tries:
-            print "Max tries for text reached."
-            return False
+            if not success:
+                print "Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address)
         return True
 
