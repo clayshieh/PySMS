@@ -66,6 +66,11 @@ Value was: Amazing
 
 Additional settings such as the window time, delimiter and identifier length can be configured when you initialize the server object by setting the optional arguments `window`, `delimiter` and `identifier_length` repsectively.
 
+### Acknowledgements
+Referenced https://www.digitaltrends.com/mobile/how-to-send-e-mail-to-sms-text/ for emails for each US carrier in `self.carriers`
+
+Referenced https://yuji.wordpress.com/2011/06/22/python-imaplib-imap-example-with-gmail/ for how to process email_data coming back from imaplib in `check_email()`
+
 ### Contributing
 Pull requests and contributions are welcomed!
 

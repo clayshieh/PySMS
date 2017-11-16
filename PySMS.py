@@ -18,7 +18,6 @@ class PySMSException:
 class PySMS:
     def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, window=5, delimiter=":",
                  identifier_length=4, ssl=False):
-        # Referenced from https://www.digitaltrends.com/mobile/how-to-send-e-mail-to-sms-text/
         self.carriers = {
             "alltel": "@mms.alltelwireless.com",
             "att": "@mms.att.net",
@@ -212,7 +211,6 @@ class PySMS:
             if self.get_current_time() - self.hook_dict[key][0] > self.window * 60:
                 self.remove_hook(key)
 
-    # Referenced from: https://yuji.wordpress.com/2011/06/22/python-imaplib-imap-example-with-gmail/
     def check_email(self, uid, email_data, current_time):
         mail = email.message_from_string(email_data[0][1])
         mail_time = email.utils.mktime_tz(email.utils.parsedate_tz(mail["Date"]))
