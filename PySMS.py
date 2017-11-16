@@ -130,6 +130,28 @@ class PySMS:
         if number in self.addresses:
             del self.addresses[number]
 
+    def add_hook(self, identifier, address, callback_function):
+        self.hook_dict[identifier] = [self.get_current_time(), address, callback_function]
+        if address not in self.tracked:
+            self.tracked.append(address)
+
+    def remove_hook(self, key):
+        if key in self.hook_dict:
+            self.tracked.remove(self.hook_dict[key][1])
+            del self.hook_dict[key]
+
+    def add_ignore(self, mail, uid):
+        ignore_list = [uid]
+        if mail["From"] in self.ignore_dict:
+            ignore_list += self.ignore_dict[mail["From"]]
+        self.ignore_dict[mail["From"]] = ignore_list
+        self.ignore_set.add(uid)
+
+    def del_ignore(self, address):
+        for uid in self.ignore_dict[address]:
+            self.ignore_set.remove(uid)
+        del self.ignore_dict[address]
+
     def get_current_time(self):
         return time.time()
 
@@ -183,28 +205,6 @@ class PySMS:
             if uid not in self.ignore_set:
                 ret.append((uid, self.get_email(uid)))
         return ret
-
-    def add_hook(self, identifier, address, callback_function):
-        self.hook_dict[identifier] = [self.get_current_time(), address, callback_function]
-        if address not in self.tracked:
-            self.tracked.append(address)
-
-    def remove_hook(self, key):
-        if key in self.hook_dict:
-            self.tracked.remove(self.hook_dict[key][1])
-            del self.hook_dict[key]
-
-    def add_ignore(self, mail, uid):
-        ignore_list = [uid]
-        if mail["From"] in self.ignore_dict:
-            ignore_list += self.ignore_dict[mail["From"]]
-        self.ignore_dict[mail["From"]] = ignore_list
-        self.ignore_set.add(uid)
-
-    def del_ignore(self, address):
-        for uid in self.ignore_dict[address]:
-            self.ignore_set.remove(uid)
-        del self.ignore_dict[address]
 
     # TODO: use min heap to speed up runtime if a lot of keys
     def clean_hook_dict(self):
