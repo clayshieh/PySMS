@@ -54,7 +54,7 @@ class PySMS:
         # Format: address => [uids]
         self.ignore_dict = {}
         self.ignore_set = set()
-        self.tracked = []
+        self.tracked = set()
 
         self.init_server()
 
@@ -132,7 +132,7 @@ class PySMS:
     def add_hook(self, identifier, address, callback_function):
         self.hook_dict[identifier] = [self.get_current_time(), address, callback_function]
         if address not in self.tracked:
-            self.tracked.append(address)
+            self.tracked.add(address)
 
     def remove_hook(self, key):
         if key in self.hook_dict:
@@ -140,11 +140,12 @@ class PySMS:
             del self.hook_dict[key]
 
     def add_ignore(self, mail, uid):
-        ignore_list = [uid]
-        if mail["From"] in self.ignore_dict:
-            ignore_list += self.ignore_dict[mail["From"]]
-        self.ignore_dict[mail["From"]] = ignore_list
-        self.ignore_set.add(uid)
+        if mail["From"] in self.tracked:
+            ignore_list = [uid]
+            if mail["From"] in self.ignore_dict:
+                ignore_list += self.ignore_dict[mail["From"]]
+            self.ignore_dict[mail["From"]] = ignore_list
+            self.ignore_set.add(uid)
 
     def del_ignore(self, address):
         for uid in self.ignore_dict[address]:
@@ -209,6 +210,7 @@ class PySMS:
     def clean_hook_dict(self):
         for key in self.hook_dict:
             if self.get_current_time() - self.hook_dict[key][0] > self.window * 60:
+                self.del_ignore(self.hook_dict[key][1])
                 self.remove_hook(key)
 
     def check_email(self, uid, email_data, current_time):
@@ -223,31 +225,35 @@ class PySMS:
                         if len(response) == 2:
                             key = response[0].strip()
                             value = response[1].strip()
-                            return self.execute_hook(key, value)
+                            # If hook is not valid then also ignore
+                            if not self.execute_hook(key, value):
+                                print "Adding failed hook with uid: {uid} to ignore.".format(uid=uid)
+                                self.add_ignore(mail, uid)
+                            return
         # Clean_hook_dict will take care of this later
         print "Email with uid: {uid} is expired, ignoring in next check".format(uid=uid)
         # Add uid to ignore if uid is expired so it knows not to request it next cycle
         self.add_ignore(mail, uid)
 
-        return False
-
     def execute_hook(self, key, value):
+        success = True
         if key in self.hook_dict:
-            success = True
             try:
                 self.hook_dict[key][2](self.hook_dict[key][1], value)
             except Exception:
                 success = False
             if success:
-                print "Hook with key: {key} for {address} executed".format(key=key, address=self.hook_dict[key][1])
+                print "Hook with key: {key} for {address} executed.".format(key=key, address=self.hook_dict[key][1])
             else:
-                print "Hook with key: {key} for {address} was not executed or failed".format(
+                print "Hook with key: {key} for {address} was not executed or failed.".format(
                     key=key, address=self.hook_dict[key][1])
             # Remove from ignore and remove from hook_dict
             self.del_ignore(self.hook_dict[key][1])
             self.remove_hook(key)
         else:
-            print "Hook with key: {key} not valid".format(key=key)
+            print "Hook with key: {key} not valid.".format(key=key)
+            success = False
+        return success
 
     def text(self, msg, address=None, callback=False, callback_function=None, max_tries=5, wait_time=5):
         ret = []
