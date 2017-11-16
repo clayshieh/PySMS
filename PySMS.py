@@ -107,7 +107,7 @@ class PySMS:
     def check_callback_requirements(self, callback_function):
         if self.imap:
             if callable(callback_function):
-                if len(inspect.getargspec(callback_function)) == 2:
+                if len(inspect.getargspec(callback_function).args) == 2:
                     return
                 else:
                     raise PySMSException("Callback function does not have the correct number of arguments.")
