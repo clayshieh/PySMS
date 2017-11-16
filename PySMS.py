@@ -18,7 +18,7 @@ class PySMSException:
 class PySMS:
     def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, window=5, delimiter=":",
                  identifier_length=4, ssl=False):
-        # referenced from https://www.digitaltrends.com/mobile/how-to-send-e-mail-to-sms-text/
+        # Referenced from https://www.digitaltrends.com/mobile/how-to-send-e-mail-to-sms-text/
         self.carriers = {
             "alltel": "@mms.alltelwireless.com",
             "att": "@mms.att.net",
@@ -32,7 +32,7 @@ class PySMS:
             "virgin": "@vmpix.com"
         }
 
-        # smtp
+        # Smtp
         self.smtp = None
         self.validate(address, password)
         self.address = address.encode("utf-8")
@@ -41,17 +41,20 @@ class PySMS:
         self.smtp_port = smtp_port
         self.ssl = ssl
 
-        # imap
+        # Imap
         self.imap = None
         self.imap_server = imap_server
         self.window = window
         self.delimiter = delimiter
         self.identifier_length = identifier_length
 
-        # format: key => [time, address, lambda]
+        # Format: key => [time, address, lambda]
         self.hook_dict = {}
-        # format: number => address
+        # Format: number => address
         self.addresses = {}
+        # Format: address => [uids]
+        self.ignore_dict = {}
+        self.ignore_set = set()
         self.tracked = []
 
         self.init_server()
@@ -75,7 +78,7 @@ class PySMS:
         except smtplib.SMTPException:
             raise PySMSException("Unable to start smtp server, please check credentials.")
 
-        # if responding functionality is enabled
+        # If responding functionality is enabled
         if self.imap_server:
             try:
                 if self.ssl:
@@ -156,13 +159,16 @@ class PySMS:
                                     "(SENTSINCE {date} {query})".format(date=date, query=self.generate_rfc_query()))
             if r == "OK":
                 email_data = self.get_emails(uids)
-                # pass a static current time because emails might take time to execute
-                current_time = self.get_current_time()
-                for e_d in email_data:
-                    self.check_email(e_d, current_time)
+                if email_data:
+                    # Pass a static current time because emails might take time to execute
+                    current_time = self.get_current_time()
+                    for e_d in email_data:
+                        self.check_email(e_d[0], e_d[1], current_time)
+                else:
+                    print "No new emails to check (either ignored or no new mail)"
         else:
             print "No addresses being tracked"
-        # clean at end to avoid race condition
+        # Clean at end to avoid race condition
         self.clean_hook_dict()
 
     def get_email(self, uid):
@@ -174,7 +180,8 @@ class PySMS:
     def get_emails(self, uids):
         ret = []
         for uid in uids[0].split():
-            ret.append(self.get_email(uid))
+            if uid not in self.ignore_set:
+                ret.append((uid, self.get_email(uid)))
         return ret
 
     def add_hook(self, identifier, address, callback_function):
@@ -187,14 +194,26 @@ class PySMS:
             self.tracked.remove(self.hook_dict[key][1])
             del self.hook_dict[key]
 
+    def add_ignore(self, mail, uid):
+        ignore_list = [uid]
+        if mail["From"] in self.ignore_dict:
+            ignore_list += self.ignore_dict[mail["From"]]
+        self.ignore_dict[mail["From"]] = ignore_list
+        self.ignore_set.add(uid)
+
+    def del_ignore(self, address):
+        for uid in self.ignore_dict[address]:
+            self.ignore_set.remove(uid)
+        del self.ignore_dict[address]
+
     # TODO: use min heap to speed up runtime if a lot of keys
     def clean_hook_dict(self):
         for key in self.hook_dict:
             if self.get_current_time() - self.hook_dict[key][0] > self.window * 60:
                 self.remove_hook(key)
 
-    # referenced from: https://yuji.wordpress.com/2011/06/22/python-imaplib-imap-example-with-gmail/
-    def check_email(self, email_data, current_time):
+    # Referenced from: https://yuji.wordpress.com/2011/06/22/python-imaplib-imap-example-with-gmail/
+    def check_email(self, uid, email_data, current_time):
         mail = email.message_from_string(email_data[0][1])
         mail_time = email.utils.mktime_tz(email.utils.parsedate_tz(mail["Date"]))
         if current_time - mail_time < self.window * 60:
@@ -207,8 +226,11 @@ class PySMS:
                             key = response[0].strip()
                             value = response[1].strip()
                             return self.execute_hook(key, value)
-        # clean_hook_dict will take care of this later
-        print "Email is expired"
+        # Clean_hook_dict will take care of this later
+        print "Email with uid: {uid} is expired, ignoring in next check".format(uid=uid)
+        # Add uid to ignore if uid is expired so it knows not to request it next cycle
+        self.add_ignore(mail, uid)
+
         return False
 
     def execute_hook(self, key, value):
@@ -223,12 +245,14 @@ class PySMS:
             else:
                 print "Hook with key: {key} for {address} was not executed or failed".format(
                     key=key, address=self.hook_dict[key][1])
+            # Remove from ignore and remove from hook_dict
+            self.del_ignore(self.hook_dict[key][1])
             self.remove_hook(key)
         else:
             print "Hook with key: {key} not valid".format(key=key)
 
     def text(self, msg, address=None, callback=False, callback_function=None, max_tries=5, wait_time=5):
-        # pointer iterate through addresses and counter to track attempts for each address
+        # Pointer iterate through addresses and counter to track attempts for each address
         pointer = 0
         counter = 0
 
