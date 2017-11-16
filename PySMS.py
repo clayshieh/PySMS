@@ -250,6 +250,7 @@ class PySMS:
             print "Hook with key: {key} not valid".format(key=key)
 
     def text(self, msg, address=None, callback=False, callback_function=None, max_tries=5, wait_time=5):
+        ret = []
         if address:
             addresses = [address]
         else:
@@ -290,5 +291,6 @@ class PySMS:
                     pass
             if not success:
                 print "Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address)
-        return True
+            ret.append(success)
+        return ret
 
