@@ -16,8 +16,8 @@ class PySMSException:
 
 
 class PySMS:
-    def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, window=5, delimiter=":",
-                 identifier_length=4, ssl=False):
+    def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, ssl=False, window=5, delimiter=":",
+                 identifier_length=4, max_tries=5, wait_time=5):
         self.carriers = {
             # US
             "alltel": "@mms.alltelwireless.com",
@@ -56,9 +56,14 @@ class PySMS:
         # Imap
         self.imap = None
         self.imap_server = imap_server
-        self.window = window
+        self.imap_mailbox = "INBOX"
         self.delimiter = delimiter
         self.identifier_length = identifier_length
+
+        # Parameters
+        self.window = window
+        self.max_tries = max_tries
+        self.wait_time = wait_time
 
         # Format: key => [time, address, lambda]
         self.hook_dict = {}
@@ -71,6 +76,58 @@ class PySMS:
 
         self.init_server()
 
+    # Getter/Setter Functions
+
+    def get_smtp_server(self):
+        return self.smtp
+
+    def get_imap_server(self):
+        return self.imap
+
+    def get_imap_mailbox(self):
+        return self.imap_mailbox
+
+    def set_imap_mailbox(self, mailbox):
+        self.imap_mailbox = mailbox
+
+    def get_hook_dict(self):
+        return self.hook_dict
+
+    def get_hook_address(self, key):
+        return self.hook_dict[key][1]
+
+    def get_delimiter(self):
+        return self.delimiter
+
+    def set_delimiter(self, delimiter):
+        self.delimiter = delimiter
+
+    def get_window(self):
+        return self.window
+
+    def set_window(self, window):
+        self.window = window
+
+    def get_max_tries(self):
+        return self.max_tries
+
+    def set_max_tries(self, max_tries):
+        self.max_tries = max_tries
+
+    def get_wait_time(self):
+        return self.wait_time
+
+    def set_wait_time(self, wait_time):
+        self.wait_time = wait_time
+
+    def get_identifier_length(self):
+        return self.identifier_length
+
+    def set_identifier_length(self, identifier_length):
+        self.identifier_length = identifier_length
+
+    # Utility Functions
+
     def validate(self, address, password):
         try:
             assert isinstance(address, basestring)
@@ -78,7 +135,24 @@ class PySMS:
         except AssertionError:
             raise PySMSException("Please make sure address and password are strings.")
 
-    def init_server(self, imap_mailbox="INBOX"):
+    def check_callback_requirements(self, callback_function):
+        if self.imap:
+            if callable(callback_function):
+                if len(inspect.getargspec(callback_function).args) == 2:
+                    return
+                else:
+                    raise PySMSException("Callback function does not have the correct number of arguments.")
+            else:
+                raise PySMSException("Callback function is not callable.")
+        else:
+            raise PySMSException("IMAP settings not configured or valid.")
+
+    def get_current_time(self):
+        return time.time()
+
+    # MMS/Internal Functions
+
+    def init_server(self):
         # PySMS at minimum uses smtp server
         try:
             if self.ssl:
@@ -99,37 +173,13 @@ class PySMS:
                     self.imap = imaplib.IMAP4(self.imap_server)
                 r, data = self.imap.login(self.address, self.password)
                 if r == "OK":
-                    r, data = self.imap.select(imap_mailbox)
+                    r, data = self.imap.select(self.imap_mailbox)
                     if r != "OK":
-                        raise PySMSException("Unable to select mailbox: {0}".format(imap_mailbox))
+                        raise PySMSException("Unable to select mailbox: {0}".format(self.imap_mailbox))
                 else:
                     raise PySMSException("Unable to login to IMAP server with given credentials.")
             except imaplib.IMAP4.error:
                 raise PySMSException("Unable to start IMAP server, please check address and SSL/TLS settings.")
-
-    def get_smtp_server(self):
-        return self.smtp
-
-    def get_imap_server(self):
-        return self.imap
-
-    def get_hook_dict(self):
-        return self.hook_dict
-
-    def get_hook_address(self, key):
-        return self.hook_dict[key][1]
-
-    def check_callback_requirements(self, callback_function):
-        if self.imap:
-            if callable(callback_function):
-                if len(inspect.getargspec(callback_function).args) == 2:
-                    return
-                else:
-                    raise PySMSException("Callback function does not have the correct number of arguments.")
-            else:
-                raise PySMSException("Callback function is not callable.")
-        else:
-            raise PySMSException("IMAP settings not configured or valid.")
 
     def add_number(self, number, carrier):
         if carrier in self.carriers:
@@ -164,9 +214,6 @@ class PySMS:
         for uid in self.ignore_dict[address]:
             self.ignore_set.remove(uid)
         del self.ignore_dict[address]
-
-    def get_current_time(self):
-        return time.time()
 
     def generate_identifier(self):
         def generate():
@@ -253,6 +300,7 @@ class PySMS:
         if key in self.hook_dict:
             try:
                 self.hook_dict[key][2](self.hook_dict[key][1], value)
+            # General Exception here to catch user defined lambda function
             except Exception:
                 success = False
             if success:
@@ -268,7 +316,7 @@ class PySMS:
             success = False
         return success
 
-    def text(self, msg, address=None, callback=False, callback_function=None, max_tries=5, wait_time=5):
+    def text(self, msg, address=None, callback=False, callback_function=None):
         ret = []
         if address:
             addresses = [address]
@@ -278,7 +326,7 @@ class PySMS:
 
         for address in addresses:
             success = False
-            for _ in range(max_tries):
+            for _ in range(self.max_tries):
                 try:
                     # Add call back function if enabled
                     identifier = None
@@ -306,7 +354,7 @@ class PySMS:
                     except PySMSException:
                         print "Server reinitialization failed."
                         pass
-                    time.sleep(wait_time)
+                    time.sleep(self.wait_time)
                     pass
             if not success:
                 print "Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address)
