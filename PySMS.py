@@ -19,6 +19,7 @@ class PySMS:
     def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, window=5, delimiter=":",
                  identifier_length=4, ssl=False):
         self.carriers = {
+            # US
             "alltel": "@mms.alltelwireless.com",
             "att": "@mms.att.net",
             "boost": "@myboostmobile.com",
@@ -28,7 +29,19 @@ class PySMS:
             "tmobile": "@tmomail.net",
             "us_cellular": "@mms.uscc.net",
             "verizon": "@vzwpix.com",
-            "virgin": "@vmpix.com"
+            "virgin": "@vmpix.com",
+            # Canada
+            "bell": "@txt.bell.ca", # http://support.bell.ca/Mobility/Rate_plans_features/What_is_text_messaging_and_how_to_use_it?step=4#displayStep
+            "chatr": "@fido.ca", # Unofficial but tested. Interchangeable to "rogers"
+            "fido": "@fido.ca", # http://www.fido.ca/consumer/content/email-to-text
+            "freedom": "@txt.freedommobile.ca", # https://www.freedommobile.ca/my-account/support/services/lists/products-services/what-is-email-to-text
+            "koodo": "@msg.koodomobile.com", # https://community.koodomobile.com/koodo/topics/email_to_text-ig2y4
+            "public_mobile": "@msg.telus.com", # https://productioncommunity.publicmobile.ca/t5/Discussions/can-I-send-email-to-sms-public-mobile-user-like-Roger-Bell-Telus/td-p/7981
+            "telus": "@msg.telus.com", # https://forum.telus.com/t5/Mobility-Services/Email-to-text/td-p/46001?linktype=nav
+            "rogers": "@pcs.rogers.com", # http://www.rogers.com/cms/html/addons/en/email_to_text.html
+            "sasktel": "@sms.sasktel.com", # http://support.sasktel.com/app/answers/detail/a_id/15421/~/sending-a-text-message-from-your-email-account
+            "speakout": "@pcs.rogers.com", # Unofficial but tested. Interchangeable to "fido"
+            "virgin_ca": "@vmobile.ca" # Presumed working but no official documentation. MX record checked
         }
 
         # Smtp
