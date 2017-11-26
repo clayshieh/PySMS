@@ -5,6 +5,7 @@ import datetime
 import time
 import random
 import inspect
+import logging
 
 
 class PySMSException:
@@ -73,6 +74,10 @@ class PySMS:
         self.ignore_dict = {}
         self.ignore_set = set()
         self.tracked = set()
+
+        # Logger
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
 
         self.init_server()
 
@@ -247,9 +252,9 @@ class PySMS:
                     for e_d in email_data:
                         self.check_email(e_d[0], e_d[1], current_time)
                 else:
-                    print "No new emails to check (either ignored or no new mail)"
+                    self.logger.info("No new emails to check (either ignored or no new mail).")
         else:
-            print "No addresses being tracked"
+            self.logger.info("No addresses being tracked")
         # Clean at end to avoid race condition
         self.clean_hook_dict()
 
@@ -287,11 +292,11 @@ class PySMS:
                             value = response[1].strip()
                             # If hook is not valid then also ignore
                             if not self.execute_hook(key, value):
-                                print "Adding failed hook with uid: {uid} to ignore.".format(uid=uid)
+                                self.logger.info("Adding failed hook with uid: {uid} to ignore.".format(uid=uid))
                                 self.add_ignore(mail, uid)
                             return
         # Clean_hook_dict will take care of this later
-        print "Email with uid: {uid} is expired, ignoring in next check".format(uid=uid)
+        self.logger.info("Email with uid: {uid} is expired, ignoring in next check".format(uid=uid))
         # Add uid to ignore if uid is expired so it knows not to request it next cycle
         self.add_ignore(mail, uid)
 
@@ -304,15 +309,15 @@ class PySMS:
             except Exception:
                 success = False
             if success:
-                print "Hook with key: {key} for {address} executed.".format(key=key, address=self.hook_dict[key][1])
+                self.logger.info("Hook with key: {key} for {address} executed.".format(key=key, address=self.hook_dict[key][1]))
             else:
-                print "Hook with key: {key} for {address} was not executed or failed.".format(
-                    key=key, address=self.hook_dict[key][1])
+                self.logger.info("Hook with key: {key} for {address} was not executed or failed.".format(
+                    key=key, address=self.hook_dict[key][1]))
             # Remove from ignore and remove from hook_dict
             self.del_ignore(self.hook_dict[key][1])
             self.remove_hook(key)
         else:
-            print "Hook with key: {key} not valid.".format(key=key)
+            self.logger.info("Hook with key: {key} not valid.".format(key=key))
             success = False
         return success
 
@@ -339,7 +344,7 @@ class PySMS:
 
                     # Send text message through SMS gateway of destination address
                     self.smtp.sendmail(self.address, address, tmp_msg)
-                    print "Message: {message} sent to: {address} successfully.".format(message=tmp_msg, address=address)
+                    self.logger.info("Message: {message} sent to: {address} successfully.".format(message=tmp_msg, address=address))
                     # Only add hook if message was sent successfully
                     if callback:
                         self.add_hook(identifier, address, callback_function)
@@ -348,16 +353,16 @@ class PySMS:
                     success = True
                     break
                 except smtplib.SMTPException:
-                    print "Failed to send message, reinitializing server."
+                    self.logger.info("Failed to send message, reinitializing server.")
                     try:
                         self.init_server()
                     except PySMSException:
-                        print "Server reinitialization failed."
+                        self.logger.info("Server reinitialization failed.")
                         pass
                     time.sleep(self.wait_time)
                     pass
             if not success:
-                print "Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address)
+                self.logger.info("Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address))
             ret.append(success)
         return ret
 
