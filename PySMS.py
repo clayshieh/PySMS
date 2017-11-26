@@ -76,6 +76,7 @@ class PySMS:
         self.tracked = set()
 
         # Logger
+        logging.basicConfig()
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
 
