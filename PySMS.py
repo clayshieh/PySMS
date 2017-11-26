@@ -158,6 +158,7 @@ class PySMS:
     # MMS/Internal Functions
 
     def init_server(self):
+        self.logger.info("Initializing SMTP/IMAP servers.")
         # PySMS at minimum uses smtp server
         try:
             if self.ssl:
@@ -190,12 +191,15 @@ class PySMS:
         if carrier in self.carriers:
             address = number + self.carriers[carrier]
             self.addresses[number] = address
+            self.logger.info("Number: {0} added.".format(number))
         else:
             raise PySMSException("Please enter a valid carrier.")
 
     def del_number(self, number):
         if number in self.addresses:
             del self.addresses[number]
+            self.logger.info("Number: {0} deleted.".format(number))
+        self.logger.error("Number: {0} not found in list of addresses, ignoring.".format(number))
 
     def add_hook(self, identifier, address, callback_function):
         self.hook_dict[identifier] = [self.get_current_time(), address, callback_function]
