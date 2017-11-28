@@ -141,10 +141,10 @@ class PySMS:
         except AssertionError:
             raise PySMSException("Please make sure address and password are strings.")
 
-    def check_callback_requirements(self, callback_function):
+    def check_callback_requirements(self, callback):
         if self.imap:
-            if callable(callback_function):
-                if len(inspect.getargspec(callback_function).args) == 2:
+            if callable(callback):
+                if len(inspect.getargspec(callback).args) == 2:
                     return
                 else:
                     raise PySMSException("Callback function does not have the correct number of arguments.")
@@ -326,7 +326,7 @@ class PySMS:
             success = False
         return success
 
-    def text(self, msg, address=None, callback=False, callback_function=None):
+    def text(self, msg, address=None, callback=False):
         ret = []
         if address:
             addresses = [address]
@@ -342,7 +342,7 @@ class PySMS:
                     identifier = None
                     if callback:
                         # Validate callback function
-                        self.check_callback_requirements(callback_function)
+                        self.check_callback_requirements(callback)
                         identifier = self.generate_identifier()
                         tmp_msg += "\rReply with identifier {identifier} followed by a \"{delimiter}\"".format(
                             identifier=identifier, delimiter=self.delimiter)
@@ -352,7 +352,7 @@ class PySMS:
                     self.logger.info("Message: {message} sent to: {address} successfully.".format(message=tmp_msg, address=address))
                     # Only add hook if message was sent successfully
                     if callback:
-                        self.add_hook(identifier, address, callback_function)
+                        self.add_hook(identifier, address, callback)
                     # Reset msg back to original
                     tmp_msg = msg
                     success = True

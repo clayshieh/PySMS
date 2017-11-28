@@ -35,14 +35,14 @@ If you want to text just one number, set the optional number argument in the `te
 
 `ps.text("This is an individual text", number="5551231234")`
 
-You can also add a callback to the text by setting the `callback` to `True` and setting the `callback_function` argument to your function. **When the callback function is executed, the code expects and checks that the callback function  accepts two arguments the first being the address of the associated hook and the second being the value of the reply** See example below.
+You can also add a callback to the text by setting the `callback_function` argument to your function. **When the callback function is executed, the code expects and checks that the callback function  accepts two arguments the first being the address of the associated hook and the second being the value of the reply** See example below.
 
 ```
 def test_callback(address, value):
 	print "Callback function triggered by {address}!".format(address=address)
 	print "Value was: " + value
 
-ps.text("This is a text with a callback function!", callback=True, callback_function=test_callback)
+ps.text("This is a text with a callback function!", callback=test_callback)
 ```
 
 The receiver of the text will get the following message:
