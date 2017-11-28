@@ -340,7 +340,7 @@ class PySMS:
             if self.auto_check_enabled:
                 self.logger.info("Auto checking tracked emails with wait interval: {0}".format(self.check_wait_time))
                 self.check_tracked()
-                time.sleep(self.check_wait_time)
+                time.sleep(60 * self.check_wait_time)
 
     def execute_hook(self, key, value):
         success = True
