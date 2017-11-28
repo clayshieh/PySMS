@@ -6,6 +6,7 @@ import time
 import random
 import inspect
 import logging
+import threading
 
 
 class PySMSException:
@@ -18,7 +19,7 @@ class PySMSException:
 
 class PySMS:
     def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, ssl=False, window=5, delimiter=":",
-                 identifier_length=4, max_tries=5, wait_time=5):
+                 identifier_length=4, max_tries=5, wait_time=5, check_wait_time=15):
         self.carriers = {
             # US
             "alltel": "@mms.alltelwireless.com",
@@ -65,6 +66,11 @@ class PySMS:
         self.window = window
         self.max_tries = max_tries
         self.wait_time = wait_time
+        self.check_wait_time = check_wait_time
+
+        # Daemon
+        self.auto_check_enabled = False
+        self.daemon = None
 
         # Format: key => [time, address, lambda]
         self.hook_dict = {}
@@ -132,6 +138,15 @@ class PySMS:
     def set_identifier_length(self, identifier_length):
         self.identifier_length = identifier_length
 
+    def get_auto_check_enabled(self):
+        return self.auto_check_enabled
+
+    def get_check_wait_time(self):
+        return self.check_wait_time
+
+    def set_check_wait_time(self, wait_time):
+        self.check_wait_time = wait_time
+
     # Utility Functions
 
     def validate(self, address, password):
@@ -141,10 +156,10 @@ class PySMS:
         except AssertionError:
             raise PySMSException("Please make sure address and password are strings.")
 
-    def check_callback_requirements(self, callback_function):
+    def check_callback_requirements(self, callback):
         if self.imap:
-            if callable(callback_function):
-                if len(inspect.getargspec(callback_function).args) == 2:
+            if callable(callback):
+                if len(inspect.getargspec(callback).args) == 2:
                     return
                 else:
                     raise PySMSException("Callback function does not have the correct number of arguments.")
@@ -305,6 +320,28 @@ class PySMS:
         # Add uid to ignore if uid is expired so it knows not to request it next cycle
         self.add_ignore(mail, uid)
 
+    def enable_auto_check(self):
+        self.logger.info("Auto checking enabled.")
+        self.auto_check_enabled = True
+
+        if not self.daemon:
+            self.logger.info("Starting daemon thread.")
+            self.daemon = threading.Thread(target=self.auto_check_daemon)
+            self.daemon.daemon = True
+            self.daemon.start()
+
+    def disable_auto_check(self):
+        self.logger.info("Auto checking disabled.")
+        self.auto_check_enabled = False
+
+    def auto_check_daemon(self):
+        self.logger.info("Auto check daemon function called.")
+        while True:
+            if self.auto_check_enabled:
+                self.logger.info("Auto checking tracked emails with wait interval: {0}".format(self.check_wait_time))
+                self.check_tracked()
+                time.sleep(60 * self.check_wait_time)
+
     def execute_hook(self, key, value):
         success = True
         if key in self.hook_dict:
@@ -326,7 +363,7 @@ class PySMS:
             success = False
         return success
 
-    def text(self, msg, address=None, callback=False, callback_function=None):
+    def text(self, msg, address=None, callback=False):
         ret = []
         if address:
             addresses = [address]
@@ -342,7 +379,7 @@ class PySMS:
                     identifier = None
                     if callback:
                         # Validate callback function
-                        self.check_callback_requirements(callback_function)
+                        self.check_callback_requirements(callback)
                         identifier = self.generate_identifier()
                         tmp_msg += "\rReply with identifier {identifier} followed by a \"{delimiter}\"".format(
                             identifier=identifier, delimiter=self.delimiter)
@@ -352,7 +389,7 @@ class PySMS:
                     self.logger.info("Message: {message} sent to: {address} successfully.".format(message=tmp_msg, address=address))
                     # Only add hook if message was sent successfully
                     if callback:
-                        self.add_hook(identifier, address, callback_function)
+                        self.add_hook(identifier, address, callback)
                     # Reset msg back to original
                     tmp_msg = msg
                     success = True
