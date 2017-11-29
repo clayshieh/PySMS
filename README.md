@@ -7,7 +7,7 @@ I could afford shared hosting that gave me unlimited email accounts but I couldn
 ### Prerequisites
 The only Python Libraries needed are included in the standard Python libraries but incase you don't have them you can install them with the following command.
 
-`pip install smtplib imaplib email datetime`
+`pip install smtplib imaplib email datetime time random inspect logging`
 
 
 ### Getting Started
