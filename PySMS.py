@@ -19,7 +19,7 @@ class PySMSException:
 
 class PySMS:
     def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, ssl=False, window=5, delimiter=":",
-                 identifier_length=4, max_tries=5, wait_time=5, check_wait_time=15):
+                 identifier_length=4, max_tries=5, wait_time=5, check_wait_time=15, check_unit=60, debug=False):
         self.carriers = {
             # US
             "alltel": "@mms.alltelwireless.com",
@@ -67,10 +67,12 @@ class PySMS:
         self.max_tries = max_tries
         self.wait_time = wait_time
         self.check_wait_time = check_wait_time
+        self.check_unit = check_unit
 
         # Daemon
         self.auto_check_enabled = False
         self.daemon = None
+        self.lock = threading.Lock()
 
         # Format: key => [time, address, lambda]
         self.hook_dict = {}
@@ -85,10 +87,13 @@ class PySMS:
         logging.basicConfig()
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
+        if debug:
+            self.logger.setLevel(logging.DEBUG)
 
         self.init_server()
 
     # Getter/Setter Functions
+    # Note: Pythonically not necessary but allows for more readable code
 
     def get_smtp_server(self):
         return self.smtp
@@ -146,6 +151,12 @@ class PySMS:
 
     def set_check_wait_time(self, wait_time):
         self.check_wait_time = wait_time
+
+    def get_check_unit(self):
+        return self.check_unit
+
+    def set_check_unit(self, unit):
+        self.check_unit = unit
 
     # Utility Functions
 
@@ -322,6 +333,8 @@ class PySMS:
 
     def enable_auto_check(self):
         self.logger.info("Auto checking enabled.")
+
+        self.lock.acquire()
         self.auto_check_enabled = True
 
         if not self.daemon:
@@ -329,18 +342,40 @@ class PySMS:
             self.daemon = threading.Thread(target=self.auto_check_daemon)
             self.daemon.daemon = True
             self.daemon.start()
+        self.lock.release()
 
     def disable_auto_check(self):
+        self.lock.acquire()
         self.logger.info("Auto checking disabled.")
         self.auto_check_enabled = False
+        self.lock.release()
+
+    def change_wait_time(self, wait_time):
+        self.check_wait_time = wait_time
 
     def auto_check_daemon(self):
         self.logger.info("Auto check daemon function called.")
+        daemon_wait_time = self.check_wait_time
+        self.logger.info("Initial auto check time: {0}".format(str(daemon_wait_time)))
+        counter = 0
         while True:
+            # hold lock to check for both the flag and wait time
+            self.lock.acquire()
             if self.auto_check_enabled:
-                self.logger.info("Auto checking tracked emails with wait interval: {0}".format(self.check_wait_time))
-                self.check_tracked()
-                time.sleep(60 * self.check_wait_time)
+                if counter < daemon_wait_time:
+                    if self.check_wait_time != daemon_wait_time:
+                        daemon_wait_time = self.check_wait_time
+                        self.logger.info("Auto check time changed to: {0}".format(str(daemon_wait_time)))
+                        counter = 0
+                if counter >= daemon_wait_time:
+                    counter = 0
+            self.lock.release()
+
+            self.logger.debug("Auto checking tracked emails with wait interval: {0} and counter is: {1}".format(
+                str(daemon_wait_time), str(counter)))
+            self.check_tracked()
+            time.sleep(self.check_unit)
+            counter += 1
 
     def execute_hook(self, key, value):
         success = True
@@ -404,7 +439,7 @@ class PySMS:
                     time.sleep(self.wait_time)
                     pass
             if not success:
-                self.logger.info("Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address))
+                self.logger.debug("Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address))
             ret.append(success)
         return ret
 
