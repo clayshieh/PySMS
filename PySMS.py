@@ -19,7 +19,7 @@ class PySMSException:
 
 class PySMS:
     def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, ssl=False, window=5, delimiter=":",
-                 identifier_length=4, max_tries=5, wait_time=5, check_wait_time=15, check_unit=60, debug=False):
+                 identifier_length=4, max_tries=5, text_wait_time=5, check_wait_time=1, check_unit=1, debug=False):
         self.carriers = {
             # US
             "alltel": "@mms.alltelwireless.com",
@@ -65,7 +65,7 @@ class PySMS:
         # Parameters
         self.window = window
         self.max_tries = max_tries
-        self.wait_time = wait_time
+        self.text_wait_time = text_wait_time
         self.check_wait_time = check_wait_time
         self.check_unit = check_unit
 
@@ -131,11 +131,11 @@ class PySMS:
     def set_max_tries(self, max_tries):
         self.max_tries = max_tries
 
-    def get_wait_time(self):
-        return self.wait_time
+    def get_text_wait_time(self):
+        return self.text_wait_time
 
-    def set_wait_time(self, wait_time):
-        self.wait_time = wait_time
+    def set_text_wait_time(self, wait_time):
+        self.text_wait_time = wait_time
 
     def get_identifier_length(self):
         return self.identifier_length
@@ -340,7 +340,7 @@ class PySMS:
         if not self.daemon:
             self.logger.info("Starting daemon thread.")
             self.daemon = threading.Thread(target=self.auto_check_daemon)
-            self.daemon.daemon = True
+            self.daemon.setDaemon(True)
             self.daemon.start()
         self.lock.release()
 
@@ -361,19 +361,22 @@ class PySMS:
         while True:
             # hold lock to check for both the flag and wait time
             self.lock.acquire()
-            if self.auto_check_enabled:
-                if counter < daemon_wait_time:
-                    if self.check_wait_time != daemon_wait_time:
-                        daemon_wait_time = self.check_wait_time
-                        self.logger.info("Auto check time changed to: {0}".format(str(daemon_wait_time)))
-                        counter = 0
-                if counter >= daemon_wait_time:
-                    counter = 0
-            self.lock.release()
-
-            self.logger.debug("Auto checking tracked emails with wait interval: {0} and counter is: {1}".format(
+            # updating daemon checking properties
+            if daemon_wait_time != self.check_wait_time:
+                daemon_wait_time = self.check_wait_time
+                self.logger.info("Auto check time changed to: {0}".format(str(daemon_wait_time)))
+                counter = 0
+            elif counter >= daemon_wait_time:
+                counter = 0
+            # perform update functions
+            if counter < daemon_wait_time and self.auto_check_enabled:
+                self.logger.debug("Auto checking tracked emails with wait interval: {0} and counter is: {1}".format(
                 str(daemon_wait_time), str(counter)))
-            self.check_tracked()
+                self.check_tracked()
+
+            # release lock once time has been changed
+            self.lock.release()
+            # sleep to allow for interval in interval change
             time.sleep(self.check_unit)
             counter += 1
 
@@ -436,7 +439,7 @@ class PySMS:
                     except PySMSException:
                         self.logger.info("Server reinitialization failed.")
                         pass
-                    time.sleep(self.wait_time)
+                    time.sleep(self.text_wait_time)
                     pass
             if not success:
                 self.logger.debug("Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address))
