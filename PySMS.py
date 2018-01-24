@@ -6,6 +6,7 @@ import time
 import random
 import inspect
 import logging
+import threading
 
 
 class PySMSException:
@@ -18,7 +19,7 @@ class PySMSException:
 
 class PySMS:
     def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, ssl=False, window=5, delimiter=":",
-                 identifier_length=4, max_tries=5, wait_time=5):
+                 identifier_length=4, max_tries=5, text_wait_time=5, check_wait_time=1, check_unit=1, debug=False):
         self.carriers = {
             # US
             "alltel": "@mms.alltelwireless.com",
@@ -64,7 +65,14 @@ class PySMS:
         # Parameters
         self.window = window
         self.max_tries = max_tries
-        self.wait_time = wait_time
+        self.text_wait_time = text_wait_time
+        self.check_wait_time = check_wait_time
+        self.check_unit = check_unit
+
+        # Daemon
+        self.auto_check_enabled = False
+        self.daemon = None
+        self.lock = threading.Lock()
 
         # Format: key => [time, address, lambda]
         self.hook_dict = {}
@@ -79,10 +87,13 @@ class PySMS:
         logging.basicConfig()
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
+        if debug:
+            self.logger.setLevel(logging.DEBUG)
 
         self.init_server()
 
     # Getter/Setter Functions
+    # Note: Pythonically not necessary but allows for more readable code
 
     def get_smtp_server(self):
         return self.smtp
@@ -120,17 +131,32 @@ class PySMS:
     def set_max_tries(self, max_tries):
         self.max_tries = max_tries
 
-    def get_wait_time(self):
-        return self.wait_time
+    def get_text_wait_time(self):
+        return self.text_wait_time
 
-    def set_wait_time(self, wait_time):
-        self.wait_time = wait_time
+    def set_text_wait_time(self, wait_time):
+        self.text_wait_time = wait_time
 
     def get_identifier_length(self):
         return self.identifier_length
 
     def set_identifier_length(self, identifier_length):
         self.identifier_length = identifier_length
+
+    def get_auto_check_enabled(self):
+        return self.auto_check_enabled
+
+    def get_check_wait_time(self):
+        return self.check_wait_time
+
+    def set_check_wait_time(self, wait_time):
+        self.check_wait_time = wait_time
+
+    def get_check_unit(self):
+        return self.check_unit
+
+    def set_check_unit(self, unit):
+        self.check_unit = unit
 
     # Utility Functions
 
@@ -141,10 +167,10 @@ class PySMS:
         except AssertionError:
             raise PySMSException("Please make sure address and password are strings.")
 
-    def check_callback_requirements(self, callback_function):
+    def check_callback_requirements(self, callback):
         if self.imap:
-            if callable(callback_function):
-                if len(inspect.getargspec(callback_function).args) == 2:
+            if callable(callback):
+                if len(inspect.getargspec(callback).args) == 2:
                     return
                 else:
                     raise PySMSException("Callback function does not have the correct number of arguments.")
@@ -305,6 +331,55 @@ class PySMS:
         # Add uid to ignore if uid is expired so it knows not to request it next cycle
         self.add_ignore(mail, uid)
 
+    def enable_auto_check(self):
+        self.logger.info("Auto checking enabled.")
+
+        self.lock.acquire()
+        self.auto_check_enabled = True
+
+        if not self.daemon:
+            self.logger.info("Starting daemon thread.")
+            self.daemon = threading.Thread(target=self.auto_check_daemon)
+            self.daemon.setDaemon(True)
+            self.daemon.start()
+        self.lock.release()
+
+    def disable_auto_check(self):
+        self.lock.acquire()
+        self.logger.info("Auto checking disabled.")
+        self.auto_check_enabled = False
+        self.lock.release()
+
+    def change_wait_time(self, wait_time):
+        self.check_wait_time = wait_time
+
+    def auto_check_daemon(self):
+        self.logger.info("Auto check daemon function called.")
+        daemon_wait_time = self.check_wait_time
+        self.logger.info("Initial auto check time: {0}".format(str(daemon_wait_time)))
+        counter = 0
+        while True:
+            # hold lock to check for both the flag and wait time
+            self.lock.acquire()
+            # updating daemon checking properties
+            if daemon_wait_time != self.check_wait_time:
+                daemon_wait_time = self.check_wait_time
+                self.logger.info("Auto check time changed to: {0}".format(str(daemon_wait_time)))
+                counter = 0
+            elif counter >= daemon_wait_time:
+                counter = 0
+            # perform update functions
+            if counter < daemon_wait_time and self.auto_check_enabled:
+                self.logger.debug("Auto checking tracked emails with wait interval: {0} and counter is: {1}".format(
+                str(daemon_wait_time), str(counter)))
+                self.check_tracked()
+
+            # release lock once time has been changed
+            self.lock.release()
+            # sleep to allow for interval in interval change
+            time.sleep(self.check_unit)
+            counter += 1
+
     def execute_hook(self, key, value):
         success = True
         if key in self.hook_dict:
@@ -326,7 +401,7 @@ class PySMS:
             success = False
         return success
 
-    def text(self, msg, address=None, callback=False, callback_function=None):
+    def text(self, msg, address=None, callback=False):
         ret = []
         if address:
             addresses = [address]
@@ -342,7 +417,7 @@ class PySMS:
                     identifier = None
                     if callback:
                         # Validate callback function
-                        self.check_callback_requirements(callback_function)
+                        self.check_callback_requirements(callback)
                         identifier = self.generate_identifier()
                         tmp_msg += "\rReply with identifier {identifier} followed by a \"{delimiter}\"".format(
                             identifier=identifier, delimiter=self.delimiter)
@@ -352,7 +427,7 @@ class PySMS:
                     self.logger.info("Message: {message} sent to: {address} successfully.".format(message=tmp_msg, address=address))
                     # Only add hook if message was sent successfully
                     if callback:
-                        self.add_hook(identifier, address, callback_function)
+                        self.add_hook(identifier, address, callback)
                     # Reset msg back to original
                     tmp_msg = msg
                     success = True
@@ -364,10 +439,10 @@ class PySMS:
                     except PySMSException:
                         self.logger.info("Server reinitialization failed.")
                         pass
-                    time.sleep(self.wait_time)
+                    time.sleep(self.text_wait_time)
                     pass
             if not success:
-                self.logger.info("Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address))
+                self.logger.debug("Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address))
             ret.append(success)
         return ret
 
