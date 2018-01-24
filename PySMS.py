@@ -19,7 +19,7 @@ class PySMSException:
 
 class PySMS:
     def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, ssl=False, window=5, delimiter=":",
-                 identifier_length=4, max_tries=5, text_wait_time=5, check_wait_time=1, check_unit=1, debug=False):
+                 identifier_length=4, max_tries=5, text_wait_time=5, check_wait_time=15, check_unit=60, debug=False):
         self.carriers = {
             # US
             "alltel": "@mms.alltelwireless.com",
