@@ -16,6 +16,8 @@ Import PySMS into your Python file by including the following line
 `import PySMS`
 
 ### Usage
+Not sure what IMAP and SMTP servers are? Read [here](https://github.com/clayshieh/PySMS/issues/3)
+
 For only texting capability, initialize the client with your address, password, smtp_server, smtp_port and an optional ssl flag.
 
 `ps = PySMS.PySMS(address="text@example.com", password="password", smtp_server="smtp.example.com", smtp_port="465", ssl=True)`
