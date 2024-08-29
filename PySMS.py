@@ -1,3 +1,5 @@
+"""Really old Python 2 code."""
+
 import smtplib
 import imaplib
 import email
