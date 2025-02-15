@@ -100,6 +100,15 @@ phone_numbers = [
 ps.send_text_message(phone_numbers, "This is a text message!")
 ```
 
+5. Send a text message with a callback function:
+
+```python
+def callback_function(address, msg):
+    print(f"Message sent to {address}: {msg}")
+
+ps.send_text_message_with_callback(phone_numbers, "This is a text message with a callback!", callback_function)
+```
+
 ### Acknowledgements
 Referenced https://www.digitaltrends.com/mobile/how-to-send-e-mail-to-sms-text/ for emails for each US carrier in `self.carriers`
 

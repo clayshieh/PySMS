@@ -423,4 +423,3 @@ class PySMS:
                 self.logger.debug("Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address))
             ret.append(success)
         return ret
-
