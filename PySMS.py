@@ -9,6 +9,7 @@ import random
 import inspect
 import logging
 import threading
+import constants
 
 
 class PySMSException:
@@ -22,31 +23,6 @@ class PySMSException:
 class PySMS:
     def __init__(self, address, password, smtp_server, smtp_port, imap_server=None, ssl=False, window=5, delimiter=":",
                  identifier_length=4, max_tries=5, text_wait_time=5, check_wait_time=15, check_unit=60, debug=False):
-        self.carriers = {
-            # US
-            "alltel": "@mms.alltelwireless.com",
-            "att": "@mms.att.net",
-            "boost": "@myboostmobile.com",
-            "cricket": "@mms.cricketwireless.net",
-            "p_fi": "msg.fi.google.com",
-            "sprint": "@pm.sprint.com",
-            "tmobile": "@tmomail.net",
-            "us_cellular": "@mms.uscc.net",
-            "verizon": "@vzwpix.com",
-            "virgin": "@vmpix.com",
-            # Canada
-            "bell": "@txt.bell.ca",
-            "chatr": "@fido.ca",
-            "fido": "@fido.ca",
-            "freedom": "@txt.freedommobile.ca",
-            "koodo": "@msg.koodomobile.com",
-            "public_mobile": "@msg.telus.com",
-            "telus": "@msg.telus.com",
-            "rogers": "@pcs.rogers.com",
-            "sasktel": "@sms.sasktel.com",
-            "speakout": "@pcs.rogers.com",
-            "virgin_ca": "@vmobile.ca"
-        }
 
         # Smtp
         self.smtp = None
@@ -217,8 +193,8 @@ class PySMS:
                 raise PySMSException("Unable to start IMAP server, please check address and SSL/TLS settings.")
 
     def add_number(self, number, carrier):
-        if carrier in self.carriers:
-            address = number + self.carriers[carrier]
+        if carrier in constants.CARRIERS:
+            address = number + constants.CARRIERS[carrier]
             self.addresses[number] = address
             self.logger.info("Number: {0} added.".format(number))
         else:
@@ -447,4 +423,3 @@ class PySMS:
                 self.logger.debug("Message: \"{message}\" sent to: {address} unsuccessfully.".format(message=msg, address=address))
             ret.append(success)
         return ret
-

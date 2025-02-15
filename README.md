@@ -68,6 +68,47 @@ Value was: Amazing
 
 Additional settings such as the window time, delimiter and identifier length can be configured when you initialize the server object by setting the optional arguments `window`, `delimiter` and `identifier_length` repsectively.
 
+### Using PySMS3 for Python 3
+
+To use the PySMS3 class for sending SMS via email using Python 3, follow the instructions below:
+
+1. Import the necessary modules:
+
+```python
+import PySMS3
+from PySMS3 import PhoneNumber
+```
+
+2. Initialize the PySMS3 client with your address, password, smtp_server, smtp_port, and an optional ssl flag:
+
+```python
+ps = PySMS3.PySMS3(host="smtp.example.com", port=465, address="text@example.com", password="password", ssl=True)
+```
+
+3. Create a list of PhoneNumber objects with the phone numbers and their corresponding carriers:
+
+```python
+phone_numbers = [
+    PhoneNumber(number="5551231234", carrier="att"),
+    PhoneNumber(number="5559876543", carrier="verizon")
+]
+```
+
+4. Send a text message to the list of phone numbers:
+
+```python
+ps.send_text_message(phone_numbers, "This is a text message!")
+```
+
+5. Send a text message with a callback function:
+
+```python
+def callback_function(address, msg):
+    print(f"Message sent to {address}: {msg}")
+
+ps.send_text_message_with_callback(phone_numbers, "This is a text message with a callback!", callback_function)
+```
+
 ### Acknowledgements
 Referenced https://www.digitaltrends.com/mobile/how-to-send-e-mail-to-sms-text/ for emails for each US carrier in `self.carriers`
 
